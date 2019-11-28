@@ -13,8 +13,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.graphics.OrthographicCamera
 import java.util.*
-
-
+import com.badlogic.gdx.audio.Sound
 
 class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
     companion object {
@@ -44,7 +43,7 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
     private var mStars: ArrayList<Star>
     private lateinit var mUfo: Ufo
     private lateinit var mPlayer: Player
-
+    private lateinit var mEnemy: Enemy
 
     private var mGameState: Int
     private var mHeightSoFar: Float = 0f
@@ -53,6 +52,7 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
     private var mScore: Int
     private var mHighScore: Int
     private var mPrefs: Preferences
+    private var mSound: Sound
 
     init {
         // 背景の準備
@@ -61,6 +61,9 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         mBg = Sprite(TextureRegion(bgTexture, 0, 0, 540, 810))
         mBg.setSize(CAMERA_WIDTH, CAMERA_HEIGHT)
         mBg.setPosition(0f, 0f)
+
+        // BGMの準備
+        mSound = Gdx.audio.newSound(Gdx.files.internal("vani.mp3"))
 
         // カメラ、ViewPortを生成、設定する
         mCamera = OrthographicCamera()
@@ -85,7 +88,7 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         mHighScore = 0
 
         // ハイスコアをPreferencesから取得する
-        mPrefs = Gdx.app.getPreferences("tsukada.yuki.techacademy.jumpactiongame")
+        mPrefs = Gdx.app.getPreferences("jp.techacademy.ito.hiroki.jumpactiongame")
         mHighScore = mPrefs.getInteger("HIGHSCORE", 0)
 
         createStage()
@@ -130,6 +133,9 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         //Player
         mPlayer.draw(mGame.batch)
 
+        //Enemy
+        mEnemy.draw(mGame.batch)
+
         mGame.batch.end()
 
         // スコア表示
@@ -155,18 +161,23 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         val starTexture = Texture("star.png")
         val playerTexture = Texture("uma.png")
         val ufoTexture = Texture("ufo.png")
+        val enemyTexture = Texture("monster1.png")
 
         // StepとStarをゴールの高さまで配置していく
         var y = 0f
 
         val maxJumpHeight = Player.PLAYER_JUMP_VELOCITY * Player.PLAYER_JUMP_VELOCITY / (2 * -GRAVITY)
         while (y < WORLD_HEIGHT - 5) {
-            val type = if(mRandom.nextFloat() > 0.8f) Step.STEP_TYPE_MOVING else Step.STEP_TYPE_STATIC
+            val type = if (mRandom.nextFloat() > 0.8f) Step.STEP_TYPE_MOVING else Step.STEP_TYPE_STATIC
             val x = mRandom.nextFloat() * (WORLD_WIDTH - Step.STEP_WIDTH)
 
             val step = Step(type, stepTexture, 0, 0, 144, 36)
             step.setPosition(x, y)
             mSteps.add(step)
+
+            /* val enemy = Enemy(type, enemyTexture, 0, 0, 72, 72)
+             star.setPosition(step.x + mRandom.nextFloat(), step.y + Star.STAR_HEIGHT + mRandom.nextFloat() * 3)
+             mEnemys.add(enemy)*/
 
             if (mRandom.nextFloat() > 0.6f) {
                 val star = Star(starTexture, 0, 0, 72, 72)
@@ -186,112 +197,123 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         mUfo = Ufo(ufoTexture, 0, 0, 120, 74)
         mUfo.setPosition(WORLD_WIDTH / 2 - Ufo.UFO_WIDTH / 2, y)
 
-    }
+        // Enemyを配置
+        mEnemy = Enemy(enemyTexture, 0, 0, 72, 72)
+        mEnemy.setPosition(WORLD_WIDTH / 2 - Enemy.ENEMY_WIDTH / 2, Step.STEP_HEIGHT)
 
-    // それぞれのオブジェクトの状態をアップデートする
-    private fun update(delta: Float) {
-        when (mGameState) {
-            GAME_STATE_READY ->
-                updateReady()
-            GAME_STATE_PLAYING ->
-                updatePlaying(delta)
-            GAME_STATE_GAMEOVER ->
-                updateGameOver()
         }
-    }
 
-    private fun updateReady() {
-        if (Gdx.input.justTouched()) {
-            mGameState = GAME_STATE_PLAYING
-        }
-    }
-
-    private fun updatePlaying(delta: Float) {
-        var accel = 0f
-        if (Gdx.input.isTouched) {
-            mGuiViewPort.unproject(mTouchPoint.set(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0f))
-            val left = Rectangle(0f, 0f, GUI_WIDTH / 2, GUI_HEIGHT)
-            val right = Rectangle(GUI_WIDTH / 2, 0f, GUI_WIDTH / 2, GUI_HEIGHT)
-            if (left.contains(mTouchPoint.x, mTouchPoint.y)) {
-                accel = 5.0f
-            }
-            if (right.contains(mTouchPoint.x, mTouchPoint.y)) {
-                accel = -5.0f
+        // それぞれのオブジェクトの状態をアップデートする
+        private fun update(delta: Float) {
+            when (mGameState) {
+                GAME_STATE_READY ->
+                    updateReady()
+                GAME_STATE_PLAYING ->
+                    updatePlaying(delta)
+                GAME_STATE_GAMEOVER ->
+                    updateGameOver()
             }
         }
 
-        // Step
-        for (i in 0 until mSteps.size) {
-            mSteps[i].update(delta)
-        }
-
-        // Player
-        if (mPlayer.y <= 0.5f) {
-            mPlayer.hitStep()
-        }
-        mPlayer.update(delta, accel)
-        mHeightSoFar = Math.max(mPlayer.y, mHeightSoFar)
-
-        // 当たり判定を行う
-        checkCollision()
-
-        // ゲームオーバーか判断する
-        checkGameOver()
-    }
-
-    private fun checkCollision() {
-        // UFO(ゴールとの当たり判定)
-        if (mPlayer.boundingRectangle.overlaps(mUfo.boundingRectangle)) {
-            mGameState = GAME_STATE_GAMEOVER
-            return
-        }
-
-
-        // Starとの当たり判定
-        for (i in 0 until mStars.size) {
-            val star = mStars[i]
-
-            if (star.mState == Star.STAR_NONE) {
-                continue
+        private fun updateReady() {
+            if (Gdx.input.justTouched()) {
+                mGameState = GAME_STATE_PLAYING
             }
+        }
 
-            if (mPlayer.boundingRectangle.overlaps(star.boundingRectangle)) {
-                star.get()
-                mScore++
-                if (mScore > mHighScore) {
-                    mHighScore = mScore
-                    //ハイスコアをPreferenceに保存する
-                    mPrefs.putInteger("HIGHSCORE", mHighScore)
-                    mPrefs.flush()
+        private fun updatePlaying(delta: Float) {
+            var accel = 0f
+            if (Gdx.input.isTouched) {
+                mGuiViewPort.unproject(mTouchPoint.set(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0f))
+                val left = Rectangle(0f, 0f, GUI_WIDTH / 2, GUI_HEIGHT)
+                val right = Rectangle(GUI_WIDTH / 2, 0f, GUI_WIDTH / 2, GUI_HEIGHT)
+                if (left.contains(mTouchPoint.x, mTouchPoint.y)) {
+                    accel = 5.0f
                 }
-                break
-            }
-        }
-
-        // Stepとの当たり判定
-        // 上昇中はStepとの当たり判定を確認しない
-        if (mPlayer.velocity.y > 0) {
-            return
-        }
-
-        for (i in 0 until mSteps.size) {
-            val step = mSteps[i]
-
-            if (step.mState == Step.STEP_STATE_VANISH) {
-                continue
+                if (right.contains(mTouchPoint.x, mTouchPoint.y)) {
+                    accel = -5.0f
+                }
             }
 
-            if (mPlayer.y > step.y) {
-                if (mPlayer.boundingRectangle.overlaps(step.boundingRectangle)) {
-                    mPlayer.hitStep()
-                    if (mRandom.nextFloat() > 0.5f) {
-                        step.vanish()
+            // Step
+            for (i in 0 until mSteps.size) {
+                mSteps[i].update(delta)
+            }
+
+            // Player
+            if (mPlayer.y <= 0.5f) {
+                mPlayer.hitStep()
+            }
+            mPlayer.update(delta, accel)
+            mHeightSoFar = Math.max(mPlayer.y, mHeightSoFar)
+
+            // 当たり判定を行う
+            checkCollision()
+
+            // ゲームオーバーか判断する
+            checkGameOver()
+        }
+
+        private fun checkCollision() {
+            // UFO(ゴールとの当たり判定)
+            if (mPlayer.boundingRectangle.overlaps(mUfo.boundingRectangle)) {
+                mGameState = GAME_STATE_GAMEOVER
+                return
+            }
+
+            // エイリアン(Enemy)との当たり判定
+            if (mPlayer.boundingRectangle.overlaps(mEnemy.boundingRectangle)) {
+                mGameState = GAME_STATE_GAMEOVER
+                return
+            }
+
+
+            // Starとの当たり判定
+            for (i in 0 until mStars.size) {
+                val star = mStars[i]
+
+                if (star.mState == Star.STAR_NONE) {
+                    continue
+                }
+
+                if (mPlayer.boundingRectangle.overlaps(star.boundingRectangle)) {
+                    star.get()
+                    mScore++
+                    if (mScore > mHighScore) {
+                        mHighScore = mScore
+                        //ハイスコアをPreferenceに保存する
+                        mPrefs.putInteger("HIGHSCORE", mHighScore)
+                        mPrefs.flush()
                     }
                     break
                 }
             }
+
+            // Stepとの当たり判定
+            // 上昇中はStepとの当たり判定を確認しない
+            if (mPlayer.velocity.y > 0) {
+                return
+            }
+
+            for (i in 0 until mSteps.size) {
+                val step = mSteps[i]
+
+                if (step.mState == Step.STEP_STATE_VANISH) {
+                    continue
+                }
+
+                if (mPlayer.y > step.y) {
+                    if (mPlayer.boundingRectangle.overlaps(step.boundingRectangle)) {
+                        mPlayer.hitStep()
+                        if (mRandom.nextFloat() > 0.5f) {
+                            mSound.play(1.0f)
+                            step.vanish()
+                        }
+                        break
+                    }
+                }
+            }
         }
-    }
 
     private fun checkGameOver() {
         if (mHeightSoFar - CAMERA_HEIGHT / 2 > mPlayer.y) {

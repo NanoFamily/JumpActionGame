@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="jp.techacademy.ito.hiroki.jumpactiongame" >
 
-    <uses-sdk android:minSdkVersion="9" android:targetSdkVersion="27" /> //←build.gradleと合わせる？
+    <!--<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="27" /> //←build.gradleと合わせる？-->
 
     <!-- AdMobに必要なパーミッションを設定する -->
     <uses-permission android:name="android.permission.INTERNET"/>
