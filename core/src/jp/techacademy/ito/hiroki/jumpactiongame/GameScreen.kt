@@ -52,7 +52,9 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
     private var mScore: Int
     private var mHighScore: Int
     private var mPrefs: Preferences
-    private var mSound: Sound
+    private var mSound1: Sound
+    private var mSound2: Sound
+    private var mSound3: Sound
 
     init {
         // 背景の準備
@@ -63,7 +65,9 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         mBg.setPosition(0f, 0f)
 
         // BGMの準備
-        mSound = Gdx.audio.newSound(Gdx.files.internal("vani.mp3"))
+        mSound1 = Gdx.audio.newSound(Gdx.files.internal("vani.mp3"))
+        mSound2 = Gdx.audio.newSound(Gdx.files.internal("collide.mp3"))
+        mSound3 = Gdx.audio.newSound(Gdx.files.internal("board.mp3"))
 
         // カメラ、ViewPortを生成、設定する
         mCamera = OrthographicCamera()
@@ -198,8 +202,8 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         mUfo.setPosition(WORLD_WIDTH / 2 - Ufo.UFO_WIDTH / 2, y)
 
         // Enemyを配置
-        mEnemy = Enemy(enemyTexture, 0, 0, 72, 72)
-        mEnemy.setPosition(WORLD_WIDTH / 2 - Enemy.ENEMY_WIDTH / 2, Step.STEP_HEIGHT)
+        mEnemy = Enemy(enemyTexture, 0, 0, 342, 400)
+        mEnemy.setPosition(WORLD_WIDTH / 2 - Enemy.ENEMY_WIDTH / 2, y - 2.5f)
 
         }
 
@@ -257,12 +261,14 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
         private fun checkCollision() {
             // UFO(ゴールとの当たり判定)
             if (mPlayer.boundingRectangle.overlaps(mUfo.boundingRectangle)) {
+                mSound3.play(1.0f)
                 mGameState = GAME_STATE_GAMEOVER
                 return
             }
 
             // エイリアン(Enemy)との当たり判定
             if (mPlayer.boundingRectangle.overlaps(mEnemy.boundingRectangle)) {
+                mSound2.play(1.0f)
                 mGameState = GAME_STATE_GAMEOVER
                 return
             }
@@ -306,7 +312,7 @@ class GameScreen(private val mGame: JumpActionGame) : ScreenAdapter() {
                     if (mPlayer.boundingRectangle.overlaps(step.boundingRectangle)) {
                         mPlayer.hitStep()
                         if (mRandom.nextFloat() > 0.5f) {
-                            mSound.play(1.0f)
+                            mSound1.play(1.0f)
                             step.vanish()
                         }
                         break

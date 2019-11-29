@@ -7,8 +7,8 @@ class Enemy(texture: Texture, srcX: Int, srcY: Int, srcWidth: Int, srcHeight: In
 
     companion object {
         // 横幅、高さ
-        val ENEMY_WIDTH =  0.2f
-        val ENEMY_HEIGHT = 0.2f
+        val ENEMY_WIDTH =  1.6f
+        val ENEMY_HEIGHT = 1.8f
     }
 
     init {
